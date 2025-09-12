@@ -1,0 +1,37 @@
+# Trading Alert System - Git Ignore File
+
+# Log files
+*.log
+trading_alerts.log
+
+# CSV data files
+alerts_log.csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+.venv
+env/
+venv/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+
+# Configuration files with sensitive data
+config_private.py
+credentials.py
