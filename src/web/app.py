@@ -122,17 +122,104 @@ def status():
     try:
         from src.services.token_manager import token_manager
         from src.services.zerodha_service import zerodha_service
+        import pytz
+        from datetime import datetime
         
         token_valid = token_manager.is_token_valid()
+        
+        # Check if it's market time
+        ist = pytz.timezone('Asia/Kolkata')
+        now_ist = datetime.now(ist)
+        cutoff_time = now_ist.replace(hour=14, minute=30, second=0, microsecond=0)
+        is_market_time = now_ist < cutoff_time
         
         return {
             "status": "active" if token_valid else "setup_required",
             "token_valid": token_valid,
             "email_configured": bool(settings.EMAIL_USER),
-            "monitoring": ["NIFTY", "BANKNIFTY"]
+            "monitoring": ["NIFTY", "BANKNIFTY"],
+            "current_time_ist": now_ist.strftime('%Y-%m-%d %H:%M:%S IST'),
+            "is_market_time": is_market_time,
+            "market_cutoff": "14:30 IST"
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}, 500
+
+@app.route('/logs')
+def view_logs():
+    """View recent system logs"""
+    try:
+        import os
+        log_file = os.path.join('logs', 'trading_alerts.log')
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                lines = f.readlines()
+                recent_logs = lines[-50:]  # Last 50 lines
+        else:
+            recent_logs = ["No logs found"]
+        
+        logs_html = """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>System Logs</title>
+            <style>
+                body { font-family: monospace; margin: 20px; }
+                .log { background: #f8f9fa; padding: 10px; margin: 5px 0; border-radius: 3px; }
+                .refresh { background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; }
+            </style>
+        </head>
+        <body>
+            <h1>📊 Trading System Logs</h1>
+            <a href="/logs" class="refresh">🔄 Refresh</a>
+            <a href="/status" class="refresh">📈 Status</a>
+            <hr>
+            <div>
+        """ + "".join([f'<div class="log">{line.strip()}</div>' for line in recent_logs]) + """
+            </div>
+        </body>
+        </html>
+        """
+        
+        return logs_html
+        
+    except Exception as e:
+        return f"❌ Error reading logs: {e}", 500
+
+@app.route('/test_data')
+def test_data():
+    """Test if we can fetch market data"""
+    try:
+        from src.services.zerodha_service import zerodha_service
+        
+        # Test connection
+        if not zerodha_service.connect():
+            return {"error": "Cannot connect to Zerodha API"}, 500
+        
+        # Try to fetch NIFTY data
+        nifty_data = zerodha_service.fetch_historical_data('256265', lookback_days=1)
+        
+        if nifty_data.empty:
+            return {"error": "No NIFTY data received"}, 500
+        
+        latest_candle = nifty_data.iloc[-1]
+        
+        return {
+            "status": "✅ Data fetch working",
+            "nifty_latest": {
+                "datetime": str(latest_candle['datetime']),
+                "open": float(latest_candle['open']),
+                "high": float(latest_candle['high']),
+                "low": float(latest_candle['low']),
+                "close": float(latest_candle['close']),
+                "volume": int(latest_candle['volume'])
+            },
+            "total_candles": len(nifty_data)
+        }
+        
+    except Exception as e:
+        return {"error": f"Data fetch failed: {e}"}, 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
