@@ -20,6 +20,7 @@ class Settings:
     # Zerodha API Configuration
     ZERODHA_API_KEY: str = os.getenv("ZERODHA_API_KEY", "")
     ZERODHA_ACCESS_TOKEN: str = os.getenv("ZERODHA_ACCESS_TOKEN", "")
+    ZERODHA_API_SECRET: str = os.getenv("ZERODHA_API_SECRET", "")
     
     # Instrument Tokens
     NIFTY_TOKEN: str = os.getenv("NIFTY_TOKEN", "256265")
@@ -60,8 +61,8 @@ class Settings:
         
         if not self.ZERODHA_API_KEY:
             missing.append("ZERODHA_API_KEY")
-        if not self.ZERODHA_ACCESS_TOKEN:
-            missing.append("ZERODHA_ACCESS_TOKEN")
+        if not self.ZERODHA_API_SECRET:
+            missing.append("ZERODHA_API_SECRET")
         if not self.EMAIL_USER:
             missing.append("EMAIL_USER")
         if not self.EMAIL_PASS:

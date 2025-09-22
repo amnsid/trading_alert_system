@@ -21,12 +21,10 @@ cp .env.example .env
 # Edit .env with your credentials
 ```
 
-### 3. Get Zerodha Access Token
-```bash
-python get_access_token.py
-# Follow instructions to get token
-# Update ZERODHA_ACCESS_TOKEN in .env
-```
+### 3. Configure Zerodha Credentials
+1. Set `ZERODHA_API_KEY` and `ZERODHA_API_SECRET` in your `.env`.
+2. Start the application (`python main.py`) and complete the first interactive Zerodha login when prompted.
+3. The system will capture the refresh token and rotate access tokens automatically afterwards—no manual `.env` updates are required.
 
 ### 4. Test System
 ```bash
@@ -84,7 +82,7 @@ railway up
 # Install Heroku CLI
 heroku create your-app-name
 heroku config:set ZERODHA_API_KEY=your_key
-heroku config:set ZERODHA_ACCESS_TOKEN=your_token
+heroku config:set ZERODHA_API_SECRET=your_secret
 # ... set other env vars
 git push heroku main
 ```
@@ -115,7 +113,7 @@ git push heroku main
 ### Required Environment Variables
 ```env
 ZERODHA_API_KEY=your_api_key
-ZERODHA_ACCESS_TOKEN=your_access_token
+ZERODHA_API_SECRET=your_api_secret
 EMAIL_USER=your_email@gmail.com
 EMAIL_PASS=your_app_password
 ALERT_TO=recipient1@gmail.com,recipient2@gmail.com
@@ -147,7 +145,7 @@ tail -f logs/trading_alerts.log
 ## 🚨 Troubleshooting
 
 ### Common Issues
-1. **Token Expired**: Regenerate access token daily
+1. **Token Refresh Failed**: Re-run the app and complete the login prompt once to capture a new refresh token
 2. **Email Failed**: Check Gmail app password
 3. **No Data**: Verify instrument tokens
 4. **Connection Error**: Check internet/API limits
@@ -160,7 +158,7 @@ tail -f logs/trading_alerts.log
 ## 🔐 Security Notes
 - Never commit .env file
 - Use app passwords for Gmail
-- Rotate access tokens regularly
+- Keep your Zerodha API secret safe and rotate it periodically
 - Monitor API usage limits
 
 ## 📈 Performance

@@ -11,16 +11,10 @@
 
 ## 🔧 WHAT YOU NEED TO DO NOW
 
-### STEP 1: Get Zerodha Access Token (5 minutes)
-```bash
-python get_access_token.py
-```
-1. Browser will open automatically
-2. Login to your Zerodha account
-3. Copy the `request_token` from redirected URL
-4. Paste it in the terminal
-5. Copy the generated access token
-6. Update `ZERODHA_ACCESS_TOKEN` in `.env` file
+### STEP 1: Configure Zerodha credentials (5 minutes)
+1. Update `.env` with your `ZERODHA_API_KEY` **and** `ZERODHA_API_SECRET`.
+2. Start the system (`python main.py`) and, when prompted, complete the one-time Zerodha login so the app can capture the refresh token automatically.
+3. The application will store and refresh access tokens for you after this initial login—no manual updates required in `.env`.
 
 ### STEP 2: Test the Complete System
 ```bash
@@ -90,7 +84,7 @@ docker-compose up -d
 
 ## 📋 YOUR ACTION ITEMS
 
-1. **Get access token** (5 minutes)
+1. **Complete initial Zerodha login when prompted** (5 minutes)
 2. **Test system** (2 minutes)
 3. **Go live** (1 minute)
 4. **Deploy to cloud** (optional - 10 minutes)

@@ -33,6 +33,7 @@ def setup_and_run():
         
         env_content = """# Zerodha KiteConnect API Configuration
 ZERODHA_API_KEY=2bys3aum1h2tl54z
+ZERODHA_API_SECRET=PASTE_YOUR_API_SECRET_HERE
 
 # Email Configuration  
 SMTP_HOST=smtp.gmail.com

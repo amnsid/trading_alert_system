@@ -4,12 +4,18 @@ Zerodha Access Token Generator
 =============================
 This script helps you get the access token for Zerodha KiteConnect API
 """
+import os
 import webbrowser
+
+from dotenv import load_dotenv
 from kiteconnect import KiteConnect
 
+# Load environment variables if available
+load_dotenv()
+
 # Your API credentials
-API_KEY = "2bys3aum1h2tl54z"
-API_SECRET = "3x6qjya3efj9bpjs68nfita8u9df5n75"
+API_KEY = os.getenv("ZERODHA_API_KEY", "2bys3aum1h2tl54z")
+API_SECRET = os.getenv("ZERODHA_API_SECRET", "")
 
 def get_access_token():
     """Generate access token for Zerodha API"""
@@ -18,6 +24,10 @@ def get_access_token():
     print("🔑 ZERODHA ACCESS TOKEN GENERATOR")
     print("=" * 60)
     
+    if not API_KEY or not API_SECRET:
+        print("❌ Please set ZERODHA_API_KEY and ZERODHA_API_SECRET in your environment before running this script.")
+        return None
+
     # Initialize KiteConnect
     kite = KiteConnect(api_key=API_KEY)
     
@@ -61,9 +71,8 @@ def get_access_token():
         
         print(f"💾 Access token saved to: access_token.txt")
         print("\n📋 Next Steps:")
-        print("1. Copy this access token")
-        print("2. Update ZERODHA_ACCESS_TOKEN in .env file")
-        print("3. Run: python main.py")
+        print("1. Launch the trading alert system (python main.py)")
+        print("2. The application will now reuse the saved refresh token for future sessions")
         
         return access_token
         

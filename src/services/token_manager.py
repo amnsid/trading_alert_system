@@ -1,13 +1,13 @@
-"""
-Automated Zerodha Token Management Service
-"""
+"""Automated Zerodha Token Management Service"""
 import os
 import json
 import webbrowser
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-import time
+from typing import Optional
+
 from kiteconnect import KiteConnect
+
 from src.config.settings import settings
 from src.utils.logger import logger
 
@@ -18,24 +18,34 @@ class TokenManager:
         self.token_file = Path("token_cache.json")
         self.kite = None
     
-    def save_token_data(self, access_token: str, expires_at: str = None):
-        """Save token data to cache file"""
+    def save_token_data(
+        self,
+        access_token: str,
+        refresh_token: Optional[str] = None,
+        expires_at: Optional[datetime] = None,
+        refresh_expires_at: Optional[datetime] = None,
+    ) -> None:
+        """Persist the token payload to disk"""
+
+        def _to_iso(value: Optional[datetime]) -> Optional[str]:
+            if not value:
+                return None
+            if isinstance(value, datetime):
+                if value.tzinfo is None:
+                    value = value.replace(tzinfo=timezone.utc)
+                return value.isoformat()
+            return str(value)
+
         if not expires_at:
-            # Token expires at end of trading day (3:30 PM IST)
-            from datetime import datetime
-            import pytz
-            ist = pytz.timezone('Asia/Kolkata')
-            today = datetime.now(ist)
-            expires_at = today.replace(hour=15, minute=30, second=0, microsecond=0)
-            if datetime.now(ist) > expires_at:
-                # If after 3:30 PM, set expiry for next day
-                expires_at += timedelta(days=1)
-        
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=23)
+
         token_data = {
-            'access_token': access_token,
-            'expires_at': expires_at.isoformat() if hasattr(expires_at, 'isoformat') else expires_at,
-            'api_key': settings.ZERODHA_API_KEY,
-            'created_at': datetime.now().isoformat()
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "expires_at": _to_iso(expires_at),
+            "refresh_expires_at": _to_iso(refresh_expires_at),
+            "api_key": settings.ZERODHA_API_KEY,
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
         
         with open(self.token_file, 'w') as f:
@@ -63,12 +73,20 @@ class TokenManager:
         
         try:
             # Check expiry
-            from datetime import datetime
-            expires_at = datetime.fromisoformat(token_data['expires_at'].replace('Z', '+00:00'))
-            if datetime.now() > expires_at:
+            expires_at = self._parse_datetime(token_data.get("expires_at"))
+            if not expires_at:
+                logger.info("Token expiry not recorded; forcing regeneration")
+                return False
+
+            now_utc = datetime.now(timezone.utc)
+            if now_utc > expires_at:
                 logger.info("Token expired")
                 return False
-            
+
+            if expires_at - now_utc <= timedelta(minutes=15):
+                logger.info("Token nearing expiry; scheduling refresh")
+                return False
+
             # Test token by making API call
             kite = KiteConnect(api_key=settings.ZERODHA_API_KEY)
             kite.set_access_token(token_data['access_token'])
@@ -100,12 +118,46 @@ class TokenManager:
     
     def auto_generate_token(self) -> str:
         """Attempt to generate token automatically (if possible)"""
-        logger.info("🤖 Attempting automatic token generation...")
-        
-        # This would require storing user credentials securely
-        # For security reasons, we'll skip this and go to manual method
-        logger.info("⚠️  Automatic token generation not available for security")
-        return None
+        logger.info("🤖 Attempting automatic token refresh using cached credentials...")
+
+        token_data = self.load_token_data()
+        if not token_data:
+            logger.info("No cached token data available for refresh")
+            return None
+
+        refresh_token = token_data.get("refresh_token")
+        if not refresh_token:
+            logger.warning("Cached token is missing refresh_token; manual login required")
+            return None
+
+        if not settings.ZERODHA_API_SECRET:
+            logger.error("ZERODHA_API_SECRET not configured; cannot refresh token automatically")
+            return None
+
+        try:
+            kite = KiteConnect(api_key=settings.ZERODHA_API_KEY)
+            data = kite.refresh_access_token(
+                refresh_token=refresh_token,
+                api_secret=settings.ZERODHA_API_SECRET,
+            )
+
+            access_token = data["access_token"]
+            new_refresh_token = data.get("refresh_token", refresh_token)
+            login_time = self._parse_datetime(data.get("login_time"))
+            expires_at = self._derive_expiry(login_time)
+
+            self.save_token_data(
+                access_token=access_token,
+                refresh_token=new_refresh_token,
+                expires_at=expires_at,
+            )
+
+            os.environ["ZERODHA_ACCESS_TOKEN"] = access_token
+            logger.info("✅ Access token refreshed successfully")
+            return access_token
+        except Exception as exc:
+            logger.error(f"Automatic token refresh failed: {exc}")
+            return None
     
     def manual_token_generation(self) -> str:
         """Generate token with minimal user interaction"""
@@ -142,15 +194,27 @@ class TokenManager:
                 return None
             
             # Generate access token
-            data = kite.generate_session(request_token, api_secret="3x6qjya3efj9bpjs68nfita8u9df5n75")
+            data = kite.generate_session(
+                request_token,
+                api_secret=settings.ZERODHA_API_SECRET,
+            )
             access_token = data["access_token"]
-            
+            refresh_token = data.get("refresh_token")
+            login_time = self._parse_datetime(data.get("login_time"))
+            expires_at = self._derive_expiry(login_time)
+
             # Save token
-            self.save_token_data(access_token)
-            
+            self.save_token_data(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                expires_at=expires_at,
+            )
+
+            os.environ["ZERODHA_ACCESS_TOKEN"] = access_token
+
             print("\n✅ SUCCESS! Token generated and saved.")
             print("🚀 System will now run automatically!")
-            
+
             return access_token
             
         except Exception as e:
@@ -180,6 +244,34 @@ class TokenManager:
             return None
         
         return result[0]
+
+    def _parse_datetime(self, value) -> Optional[datetime]:
+        """Convert various datetime formats to aware UTC datetime"""
+        if not value:
+            return None
+
+        if isinstance(value, datetime):
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value.astimezone(timezone.utc)
+
+        try:
+            value = str(value)
+            if value.endswith("Z"):
+                value = value[:-1] + "+00:00"
+            dt = datetime.fromisoformat(value)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except Exception:
+            logger.warning(f"Unable to parse datetime value: {value}")
+            return None
+
+    def _derive_expiry(self, login_time: Optional[datetime]) -> datetime:
+        """Best-effort calculation of access-token expiry"""
+        if login_time:
+            return login_time + timedelta(hours=23, minutes=45)
+        return datetime.now(timezone.utc) + timedelta(hours=23)
     
     def auto_refresh_token_if_needed(self) -> bool:
         """Check and refresh token if needed (call this periodically)"""

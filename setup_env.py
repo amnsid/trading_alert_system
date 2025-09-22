@@ -10,7 +10,9 @@ def create_env_file():
     
     env_content = """# Zerodha KiteConnect API Configuration
 ZERODHA_API_KEY=2bys3aum1h2tl54z
-ZERODHA_ACCESS_TOKEN=PASTE_YOUR_ACCESS_TOKEN_HERE
+ZERODHA_API_SECRET=PASTE_YOUR_API_SECRET_HERE
+# Optional: used only for first-time bootstrap before automation captures tokens
+ZERODHA_ACCESS_TOKEN=
 
 # Instrument Tokens (Standard tokens - will work for most cases)
 NIFTY_TOKEN=256265
@@ -41,10 +43,7 @@ HOST=0.0.0.0"""
     
     print("✅ .env file created successfully!")
     print("\n📋 NEXT STEPS:")
-    print("1. Get your Zerodha access token:")
-    print("   - Run: python get_access_token.py")
-    print("   - Follow the instructions to get token")
-    print("   - Update ZERODHA_ACCESS_TOKEN in .env file")
+    print("1. Perform the initial Zerodha login when prompted by the app to capture the refresh token")
     print("\n2. Test the system:")
     print("   - Run: python main.py")
     
